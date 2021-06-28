@@ -1,3 +1,4 @@
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +18,12 @@ class ThreadTest {
     @BeforeEach
     public void setUp(){
         startTime = System.currentTimeMillis();
+        log("Test started.");
+    }
+
+    @AfterEach
+    public void tearDown(){
+        log("Test finished.");
     }
 
     @Test
@@ -33,7 +40,6 @@ class ThreadTest {
             Aradan zaman geçtikten sonra Future'dan sonuç alınıp işlenebilir.
             Future blocking code'dur.
          */
-        log("Test started.");
 
         ExecutorService executorService = Executors.newFixedThreadPool(10);
         Future<String> future = executorService.submit(() -> {
@@ -65,7 +71,6 @@ class ThreadTest {
             Aradan zaman geçtikten sonra Future'dan sonuç alınıp işlenebilir.
             Future blocking code'dur.
          */
-        log("Test started.");
 
         ExecutorService executorService = Executors.newFixedThreadPool(10);
         Future<String> future = executorService.submit(() -> {
@@ -92,8 +97,6 @@ class ThreadTest {
 
     @Test
     public void testFixedSizeThreadPool() throws ExecutionException, InterruptedException {
-
-        log("Test started.");
 
         ThreadPoolExecutor executor =
                 (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
@@ -131,14 +134,10 @@ class ThreadTest {
         f3.get();
         f4.get();
 
-        log("Test finished.");
-
     }
 
     @Test
     public void testCachedThreadPool() throws ExecutionException, InterruptedException {
-
-        log("Test started.");
 
         /*
          İhtiyaç halinde thread cache büyür
@@ -180,13 +179,10 @@ class ThreadTest {
         f3.get();
         f4.get();
 
-        log("Test finished.");
-
     }
 
     @Test
     public void testSingleThreadExecutor() throws ExecutionException, InterruptedException {
-        log("Test started.");
 
         AtomicInteger counter = new AtomicInteger();
 
@@ -236,7 +232,109 @@ class ThreadTest {
         f2.get();
 
         log("Result:" + counter.toString());
-        log("Test finished.");
 
     }
+
+    @Test
+    public void testScheduleAtFixedRate() throws InterruptedException, ExecutionException {
+        /*
+        A synchronization aid that allows one or more threads to wait until a set of operations being performed
+        in other threads completes.
+        A CountDownLatch is initialized with a given count. The await methods block until
+        the current count reaches zero due to invocations of the countDown method,
+        after which all waiting threads are released and any subsequent invocations of await return immediately.
+         */
+        CountDownLatch lock = new CountDownLatch(3);
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(5);
+
+        /*
+         Thread'ler çalıştırmadan önce delay koyar.
+         Task'ların başlangıç zamanına göre zamanı ölçer.
+         Task bitiş zamanı uzarsa task yarıda kesilmez.
+         */
+        ScheduledFuture<?> future = executor.scheduleAtFixedRate(() -> {
+            System.out.println("Hello World");
+            lock.countDown();
+        }, 500, 100, TimeUnit.MILLISECONDS);
+
+
+        // Await, count sıfıra inene kadar bloklar. Count'u sıfıra da countDown() metodu getirir.
+        lock.await(1000, TimeUnit.MILLISECONDS);
+        future.cancel(true);
+
+
+    }
+
+    @Test
+    public void testScheduleAtFixedDelay() throws InterruptedException {
+
+        CountDownLatch lock = new CountDownLatch(3);
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(5);
+        /*
+         Thread'ler çalıştırmadan önce delay koyar.
+         Önceki task'ın bitişi ile yeni task'ın başlangıç zamanına göre zamanı ölçer.
+         */
+        ScheduledFuture<?> future = executor.scheduleWithFixedDelay(() -> {
+            System.out.println("Hello World");
+            lock.countDown();
+        }, 500, 100, TimeUnit.MILLISECONDS);
+
+        lock.await(1000, TimeUnit.MILLISECONDS);
+        future.cancel(true);
+    }
+
+    @Test
+    public void testScheduleAtFixedRate2() throws ExecutionException, InterruptedException {
+        CountDownLatch lock = new CountDownLatch(5);
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(5);
+        // Task tamamlanma süresi period'dan fazla olduğu için tüm tasklar arasında 1000ms fark vardır.
+        ScheduledFuture<?> future = executor.scheduleAtFixedRate(() -> {
+            try {
+                Thread.sleep(1000);
+
+                Long time = System.currentTimeMillis() - startTime;
+                log(String.valueOf(time));
+
+                lock.countDown();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, 500, 100, TimeUnit.MILLISECONDS);
+
+        // wait until the latch has counted down to zero, unless the thread is interrupted,
+        // or the specified waiting time elapses
+        lock.await(10000, TimeUnit.MILLISECONDS);
+        future.cancel(true);
+    }
+
+    @Test
+    public void testScheduleAtFixedDelay2() throws ExecutionException, InterruptedException {
+
+        CountDownLatch lock = new CountDownLatch(5);
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(5);
+        // Tüm tasklar arasında 1100ms fark vardır. (Task tamamlanma süresi + period)
+        ScheduledFuture<?> future = executor.scheduleWithFixedDelay(() -> {
+            try {
+                Thread.sleep(1000);
+
+                Long time = System.currentTimeMillis() - startTime;
+                log(String.valueOf(time));
+
+                lock.countDown();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, 500, 100, TimeUnit.MILLISECONDS);
+
+        // wait until the latch has counted down to zero, unless the thread is interrupted,
+        // or the specified waiting time elapses
+        lock.await(10000, TimeUnit.MILLISECONDS);
+        future.cancel(true);
+    }
+
+
 }
